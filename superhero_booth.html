@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>¡Fábrica de Héroes! — Stand IA</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --r:23px;
+  --c1:#7c3aed;--c2:#2563eb;--c3:#06b6d4;--c4:#f59e0b;
+  --glow1:rgba(124,58,237,0.6);--glow2:rgba(37,99,235,0.5);--glow3:rgba(6,182,212,0.5);
+  --surface:rgba(10,8,25,0.85);--surface2:rgba(255,255,255,0.05);
+  --border:rgba(255,255,255,0.1);--text:#f0eeff;--muted:rgba(240,238,255,0.5);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Outfit',sans-serif;background:#050310;color:var(--text);min-height:100vh;overflow-x:hidden;}
+
+.bg{position:fixed;inset:0;z-index:0;background:#050310;overflow:hidden;}
+#bg-canvas{position:absolute;inset:0;width:100%;height:100%;}
+
+.shell{position:relative;z-index:1;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:2rem 1rem 4rem;}
+
+.header{text-align:center;margin-bottom:2.5rem;}
+.header-logo{font-family:'Bebas Neue',sans-serif;font-size:clamp(3rem,8vw,5.5rem);letter-spacing:.05em;background:linear-gradient(135deg,#c084fc,#60a5fa,#34d399,#fbbf24);background-size:300% 300%;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;animation:gradShift 6s ease infinite;line-height:1;}
+.header-sub{font-size:1rem;color:var(--muted);font-weight:300;letter-spacing:.15em;text-transform:uppercase;margin-top:.4rem;}
+@keyframes gradShift{0%{background-position:0% 50%;}50%{background-position:100% 50%;}100%{background-position:0% 50%;}}
+
+.card{width:100%;max-width:640px;background:var(--surface);border:1px solid var(--border);border-radius:28px;padding:2rem;backdrop-filter:blur(24px);box-shadow:0 0 60px rgba(124,58,237,0.15),0 0 120px rgba(37,99,235,0.08),inset 0 1px 0 rgba(255,255,255,0.08);}
+
+.progress-wrap{display:flex;align-items:center;gap:5px;margin-bottom:2rem;}
+.prog-dot{flex:1;height:4px;border-radius:4px;background:rgba(255,255,255,0.1);transition:background .4s,box-shadow .4s;}
+.prog-dot.done{background:linear-gradient(90deg,var(--c1),var(--c2));box-shadow:0 0 8px var(--glow1);}
+.prog-dot.active{background:linear-gradient(90deg,var(--c3),var(--c1));box-shadow:0 0 12px var(--glow3);animation:progPulse 1.5s ease infinite;}
+@keyframes progPulse{0%,100%{box-shadow:0 0 8px var(--glow3);}50%{box-shadow:0 0 18px var(--glow3),0 0 30px rgba(6,182,212,0.3);}}
+
+.step{display:none;animation:fadeUp .4s ease;}
+.step.active{display:block;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(16px);}to{opacity:1;transform:translateY(0);}}
+.step-label{font-size:11px;color:var(--muted);letter-spacing:.12em;text-transform:uppercase;margin-bottom:.4rem;}
+.step-title{font-family:'Bebas Neue',sans-serif;font-size:clamp(1.6rem,4vw,2.4rem);letter-spacing:.04em;margin-bottom:1.5rem;background:linear-gradient(90deg,#e0d7ff,#bae6fd);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.sub-label{font-size:12px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-bottom:10px;margin-top:4px;}
+
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;margin-bottom:1.5rem;}
+.opt{border:1px solid var(--border);border-radius:var(--r);padding:14px 10px;cursor:pointer;background:var(--surface2);color:var(--text);font-size:13px;font-family:'Outfit',sans-serif;text-align:center;transition:all .25s cubic-bezier(.4,0,.2,1);position:relative;overflow:hidden;}
+.opt::before{content:'';position:absolute;inset:0;border-radius:var(--r);background:linear-gradient(135deg,rgba(124,58,237,0),rgba(6,182,212,0));transition:background .25s;}
+.opt:hover{border-color:rgba(255,255,255,0.25);transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,0.3);}
+.opt:hover::before{background:linear-gradient(135deg,rgba(124,58,237,0.15),rgba(6,182,212,0.1));}
+.opt.selected{border-color:var(--c3);background:linear-gradient(135deg,rgba(124,58,237,0.25),rgba(6,182,212,0.15));box-shadow:0 0 0 1px var(--c3),0 0 20px var(--glow3),0 0 40px rgba(6,182,212,0.1);transform:translateY(-2px);}
+.opt .icon-svg{display:block;width:32px;height:32px;margin:0 auto 8px;color:var(--text);opacity:0.85;}
+.opt .icon-svg svg{width:100%;height:100%;}
+.opt.selected .icon-svg{opacity:1;color:#e0f7ff;}
+.opt .lbl{font-weight:500;font-size:12px;line-height:1.3;position:relative;z-index:1;}
+
+/* SKIN GRADIENT SLIDER */
+.skin-slider-wrap{margin-bottom:1.5rem;}
+.skin-track{position:relative;width:100%;height:48px;border-radius:24px;cursor:pointer;background:linear-gradient(to right,#fde8d8 0%,#f5c5a0 20%,#d4956a 40%,#a0633a 60%,#6b3a20 80%,#3b1f10 100%);border:1px solid var(--border);box-shadow:0 0 20px rgba(6,182,212,0.1);user-select:none;}
+.skin-thumb{position:absolute;top:50%;transform:translate(-50%,-50%);width:40px;height:40px;border-radius:50%;border:3px solid #fff;box-shadow:0 0 0 2px var(--c3),0 0 20px var(--glow3),0 4px 16px rgba(0,0,0,0.6);cursor:grab;pointer-events:none;transition:box-shadow .2s;}
+.skin-label-row{display:flex;justify-content:space-between;margin-top:10px;padding:0 4px;}
+.skin-label-row span{font-size:10px;color:var(--muted);}
+.skin-preview{display:flex;align-items:center;gap:14px;margin-top:14px;padding:12px 16px;background:var(--surface2);border-radius:var(--r);border:1px solid var(--border);}
+.skin-swatch{width:32px;height:32px;border-radius:50%;border:2px solid rgba(255,255,255,0.25);flex-shrink:0;transition:background .15s;}
+.skin-name{font-size:14px;color:var(--text);font-weight:500;}
+
+/* HAIR COLOR GRID */
+.hair-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:10px;margin-bottom:1.5rem;}
+.hair-opt{border:2px solid transparent;border-radius:var(--r);padding:12px 8px;cursor:pointer;background:var(--surface2);text-align:center;transition:all .2s;display:flex;flex-direction:column;align-items:center;gap:8px;}
+.hair-opt:hover{transform:translateY(-2px);border-color:rgba(255,255,255,0.2);}
+.hair-opt.selected{border-color:var(--c3);box-shadow:0 0 0 1px var(--c3),0 0 16px var(--glow3);}
+.hair-swatch{width:36px;height:36px;border-radius:50%;border:2px solid rgba(255,255,255,0.2);}
+.hair-lbl{font-size:11px;color:var(--muted);font-weight:500;line-height:1.3;}
+.hair-opt.selected .hair-lbl{color:var(--c3);}
+
+/* BUTTONS */
+.btn-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:.5rem;}
+.btn{border:1px solid var(--border);border-radius:var(--r);padding:12px 24px;cursor:pointer;background:var(--surface2);color:var(--text);font-size:14px;font-weight:500;font-family:'Outfit',sans-serif;transition:all .2s;}
+.btn:hover{background:rgba(255,255,255,0.08);border-color:rgba(255,255,255,0.25);}
+.btn:active{transform:scale(0.97);}
+.btn-primary{background:linear-gradient(135deg,var(--c1),var(--c2));border:none;box-shadow:0 0 20px var(--glow1),0 0 40px rgba(37,99,235,0.2);color:#fff;position:relative;overflow:hidden;}
+.btn-primary::after{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,255,255,0),rgba(255,255,255,0.12),rgba(255,255,255,0));opacity:0;transition:opacity .2s;}
+.btn-primary:hover{box-shadow:0 0 30px var(--glow1),0 0 60px rgba(37,99,235,0.3);transform:translateY(-1px);}
+.btn-primary:hover::after{opacity:1;}
+.btn-cta{background:linear-gradient(135deg,var(--c3),var(--c1),var(--c4));background-size:200% 200%;animation:gradShift 4s ease infinite;border:none;box-shadow:0 0 25px var(--glow3),0 0 50px var(--glow1);color:#fff;font-size:15px;padding:14px 32px;}
+.btn-cta:hover{box-shadow:0 0 40px var(--glow3),0 0 80px var(--glow1);transform:translateY(-2px) scale(1.02);}
+
+/* CAMERA */
+.cam-wrap{position:relative;width:100%;max-width:560px;margin:0 auto 1.5rem;border-radius:20px;overflow:hidden;border:1px solid var(--border);box-shadow:0 0 40px rgba(6,182,212,0.2);aspect-ratio:4/3;background:#000;}
+#video{width:100%;height:100%;object-fit:cover;display:block;transform:scaleX(-1);}
+.cam-frame{position:absolute;inset:0;pointer-events:none;border-radius:20px;}
+.cam-frame::before,.cam-frame::after{content:'';position:absolute;width:28px;height:28px;border-color:var(--c3);border-style:solid;}
+.cam-frame::before{top:10px;left:10px;border-width:2px 0 0 2px;border-radius:4px 0 0 0;}
+.cam-frame::after{bottom:10px;right:10px;border-width:0 2px 2px 0;border-radius:0 0 4px 0;}
+.cam-corner2{position:absolute;inset:0;pointer-events:none;}
+.cam-corner2::before,.cam-corner2::after{content:'';position:absolute;width:28px;height:28px;border-color:var(--c3);border-style:solid;}
+.cam-corner2::before{top:10px;right:10px;border-width:2px 2px 0 0;border-radius:0 4px 0 0;}
+.cam-corner2::after{bottom:10px;left:10px;border-width:0 0 2px 2px;border-radius:0 0 0 4px;}
+#mask-canvas{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:2;}
+#flash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;border-radius:20px;}
+#countdown-overlay{position:absolute;inset:0;display:none;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:100px;color:#fff;text-shadow:0 0 40px var(--c3),0 0 80px rgba(6,182,212,0.5);background:rgba(0,0,0,0.4);z-index:3;}
+#snap-preview{display:none;width:100%;max-width:560px;margin:0 auto 1.5rem;border-radius:20px;overflow:hidden;border:1px solid var(--border);box-shadow:0 0 40px rgba(124,58,237,0.3);}
+#snap-preview img{width:100%;display:block;}
+
+.input-hero{width:100%;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:var(--r);padding:14px 18px;font-size:16px;font-family:'Outfit',sans-serif;color:var(--text);margin-bottom:1.5rem;outline:none;transition:border-color .2s,box-shadow .2s;}
+.input-hero::placeholder{color:var(--muted);}
+.input-hero:focus{border-color:var(--c3);box-shadow:0 0 0 3px rgba(6,182,212,0.15),0 0 20px rgba(6,182,212,0.1);}
+
+.result-name{font-family:'Bebas Neue',sans-serif;font-size:clamp(2rem,6vw,3.5rem);letter-spacing:.06em;background:linear-gradient(135deg,#fbbf24,#f472b6,#c084fc);background-size:200%;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;animation:gradShift 3s ease infinite;margin-bottom:.5rem;}
+.result-sub{font-size:13px;color:var(--muted);margin-bottom:1.5rem;line-height:1.6;}
+.prompt-box{background:rgba(0,0,0,0.4);border:1px solid rgba(6,182,212,0.2);border-radius:16px;padding:1.25rem;font-size:12px;line-height:1.8;color:rgba(240,238,255,0.75);font-family:'Outfit',monospace;white-space:pre-wrap;word-break:break-word;margin-bottom:1.25rem;max-height:220px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--c1) transparent;}
+.instrucciones{background:rgba(6,182,212,0.06);border:1px solid rgba(6,182,212,0.15);border-radius:16px;padding:1rem 1.25rem;font-size:13px;line-height:1.9;color:var(--muted);margin-bottom:1.25rem;}
+.instrucciones strong{color:var(--c3);}
+.ai-link{display:inline-flex;align-items:center;gap:8px;padding:12px 24px;background:linear-gradient(135deg,#1a73e8,#0d47a1);border-radius:var(--r);color:#fff;text-decoration:none;font-size:14px;font-weight:500;font-family:'Outfit',sans-serif;box-shadow:0 0 20px rgba(26,115,232,0.4);transition:all .2s;border:none;cursor:pointer;}
+.ai-link:hover{box-shadow:0 0 35px rgba(26,115,232,0.6);transform:translateY(-1px);}
+.restart-btn{background:none;border:none;color:var(--muted);font-size:13px;cursor:pointer;font-family:'Outfit',sans-serif;text-decoration:underline;text-underline-offset:3px;margin-top:1rem;display:block;transition:color .2s;}
+.restart-btn:hover{color:var(--text);}
+.divider{height:1px;background:linear-gradient(90deg,transparent,var(--border),transparent);margin:1rem 0;}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+</head>
+<body>
+
+<div class="bg"><canvas id="bg-canvas"></canvas></div>
+
+<div class="shell">
+  <div class="header">
+    <div class="header-logo">¡Fábrica de Héroes!</div>
+    <div class="header-sub">Powered by IA · Stand Accenture</div>
+  </div>
+
+  <div class="card">
+    <div class="progress-wrap" id="progress"></div>
+
+    <!-- S0: CAMERA -->
+    <div class="step active" id="s0">
+      <div class="step-label">Paso 1 de 8</div>
+      <div class="step-title">¡Prepárate para ser un héroe!</div>
+      <div class="cam-wrap" id="camera-wrap">
+        <video id="video" autoplay playsinline muted></video>
+        <canvas id="mask-canvas"></canvas>
+        <div class="cam-frame"></div><div class="cam-corner2"></div>
+        <div id="flash"></div>
+        <div id="countdown-overlay"></div>
+      </div>
+      <div id="snap-preview"><img id="snap-img" src="" alt="tu foto"/></div>
+      <div class="btn-row">
+        <button class="btn btn-primary" id="snap-btn" onclick="startCountdown()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:6px"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>¡Hazte la foto!</button>
+        <button class="btn" id="retake-btn" style="display:none" onclick="retake()">Repetir</button>
+        <button class="btn btn-cta" id="next0-btn" style="display:none" onclick="goStep(1)">¡Vamos! →</button>
+      </div>
+    </div>
+
+    <!-- S1: GÉNERO -->
+    <div class="step" id="s1">
+      <div class="step-label">Paso 2 de 8</div>
+      <div class="step-title">¿Quién es tu héroe?</div>
+      <div class="grid" id="g-genero"></div>
+      <div class="btn-row">
+        <button class="btn" onclick="goStep(0)">← Atrás</button>
+        <button class="btn btn-primary" onclick="goStep(2)">Continuar →</button>
+      </div>
+    </div>
+
+    <!-- S2: OJOS -->
+    <div class="step" id="s2">
+      <div class="step-label">Paso 3 de 8</div>
+      <div class="step-title">¿De qué color son tus ojos?</div>
+      <div class="hair-grid" id="g-ojos"></div>
+      <div class="btn-row">
+        <button class="btn" onclick="goStep(1)">← Atrás</button>
+        <button class="btn btn-primary" onclick="goStep(3)">Continuar →</button>
+      </div>
+    </div>
+
+    <!-- S3: PELO -->
+    <div class="step" id="s3">
+      <div class="step-label">Paso 4 de 8</div>
+      <div class="step-title">¿De qué color es tu pelo?</div>
+      <div class="hair-grid" id="g-pelo"></div>
+      <div class="btn-row">
+        <button class="btn" onclick="goStep(2)">← Atrás</button>
+        <button class="btn btn-primary" onclick="goStep(4)">Continuar →</button>
+      </div>
+    </div>
+
+    <!-- S4: PIEL SLIDER -->
+    <div class="step" id="s4">
+      <div class="step-label">Paso 5 de 8</div>
+      <div class="step-title">¿De qué color es tu piel?</div>
+      <p style="font-size:13px;color:var(--muted);margin-bottom:16px;">Mueve el círculo hasta encontrar tu tono</p>
+      <div class="skin-slider-wrap">
+        <div class="skin-track" id="skin-track">
+          <div class="skin-thumb" id="skin-thumb"></div>
+        </div>
+        <div class="skin-label-row">
+          <span>Muy clara</span><span>Clara</span><span>Media</span><span>Oscura</span><span>Muy oscura</span>
+        </div>
+        <div class="skin-preview">
+          <div class="skin-swatch" id="skin-swatch"></div>
+          <div class="skin-name" id="skin-name">Mueve el selector</div>
+        </div>
+      </div>
+      <div class="btn-row" style="margin-top:1rem">
+        <button class="btn" onclick="goStep(3)">← Atrás</button>
+        <button class="btn btn-primary" onclick="goStep(5)">Continuar →</button>
+      </div>
+    </div>
+
+    <!-- S5: TRAJE -->
+    <div class="step" id="s5">
+      <div class="step-label">Paso 6 de 8</div>
+      <div class="step-title">¡Elige tu supertraje!</div>
+      <div class="grid" id="g-traje"></div>
+      <div class="btn-row">
+        <button class="btn" onclick="goStep(4)">← Atrás</button>
+        <button class="btn btn-primary" onclick="goStep(6)">Continuar →</button>
+      </div>
+    </div>
+
+    <!-- S6: ESCENARIO -->
+    <div class="step" id="s6">
+      <div class="step-label">Paso 7 de 8</div>
+      <div class="step-title">¿Dónde está tu aventura?</div>
+      <div class="grid" id="g-escenario"></div>
+      <div class="btn-row">
+        <button class="btn" onclick="goStep(5)">← Atrás</button>
+        <button class="btn btn-primary" onclick="goStep(7)">Continuar →</button>
+      </div>
+    </div>
+
+    <!-- S7: ACCIÓN -->
+    <div class="step" id="s7">
+      <div class="step-label">Paso 8 de 8 · ¡casi!</div>
+      <div class="step-title">¿Cuál es tu movimiento estrella?</div>
+      <div class="grid" id="g-accion"></div>
+      <div class="btn-row">
+        <button class="btn" onclick="goStep(6)">← Atrás</button>
+        <button class="btn btn-primary" onclick="goStep(8)">Continuar →</button>
+      </div>
+    </div>
+
+    <!-- S8: NOMBRE -->
+    <div class="step" id="s8">
+      <div class="step-label">¡Último paso!</div>
+      <div class="step-title">¿Cuál es tu nombre de héroe?</div>
+      <input class="input-hero" id="nombre" type="text" placeholder="Ej: SUPER ALEX, LA LLAMA, NOVA KID..." maxlength="30"/>
+      <div class="btn-row">
+        <button class="btn" onclick="goStep(7)">← Atrás</button>
+        <button class="btn btn-cta" onclick="generatePrompt()"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" style="display:inline;vertical-align:middle;margin-right:6px"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>¡Forjar mi póster!</button>
+      </div>
+    </div>
+
+    <!-- S9: RESULTADO -->
+    <div class="step" id="s9">
+      <div class="result-name" id="result-name"></div>
+      <div class="result-sub">¡Tu póster de héroe está listo! Pégalo en Google AI Studio para generarlo.</div>
+      <div class="instrucciones">
+        <strong>1.</strong> Copia el prompt &nbsp;·&nbsp; <strong>2.</strong> Abre AI Studio con el botón azul &nbsp;·&nbsp; <strong>3.</strong> Activa <strong>Image generation</strong> &nbsp;·&nbsp; <strong>4.</strong> Pega y envía
+      </div>
+      <div class="prompt-box" id="prompt-out"></div>
+      <div class="btn-row" style="margin-bottom:.75rem;">
+        <button class="btn btn-primary" id="copy-btn" onclick="copyPrompt()">Copiar prompt</button>
+        <a class="ai-link" href="https://aistudio.google.com/prompts/new_chat?model=gemini-2.5-flash-image" target="_blank">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Abrir AI Studio
+        </a>
+      </div>
+      <button class="restart-btn" onclick="restart()">Generar otro póster</button>
+    </div>
+
+  </div>
+</div>
+
+<script>
+/* ---- BACKGROUND CANVAS ---- */
+(function(){
+  const canvas=document.getElementById('bg-canvas');
+  const ctx=canvas.getContext('2d');
+  let W,H,mouse={x:0,y:0},target={x:0,y:0};
+
+  function resize(){W=canvas.width=window.innerWidth;H=canvas.height=window.innerHeight;}
+  resize();
+  window.addEventListener('resize',resize);
+  window.addEventListener('mousemove',e=>{mouse.x=e.clientX;mouse.y=e.clientY;});
+  window.addEventListener('touchmove',e=>{if(e.touches[0]){mouse.x=e.touches[0].clientX;mouse.y=e.touches[0].clientY;}},{passive:true});
+
+  /* Orbs */
+  const orbs=[
+    {bx:0.15, by:0.15, r:380, color:'#7c3aed', ox:0, oy:0, speed:0.08, phase:0},
+    {bx:0.85, by:0.35, r:320, color:'#2563eb', ox:0, oy:0, speed:0.06, phase:1.5},
+    {bx:0.4,  by:0.85, r:280, color:'#06b6d4', ox:0, oy:0, speed:0.07, phase:3},
+    {bx:0.7,  by:0.7,  r:220, color:'#f59e0b', ox:0, oy:0, speed:0.09, phase:4.5},
+  ];
+
+  /* Particles */
+  const NUM=110;
+  const particles=[];
+  for(let i=0;i<NUM;i++){
+    particles.push({
+      x:Math.random()*W, y:Math.random()*H,
+      vx:(Math.random()-.5)*0.3, vy:(Math.random()-.5)*0.3,
+      r:Math.random()*1.6+0.3,
+      alpha:Math.random()*0.7+0.15,
+      ta:Math.random()*0.7+0.15,
+      twinkleSpeed:Math.random()*0.008+0.003,
+      twinkleDir:Math.random()<0.5?1:-1,
+    });
+  }
+
+  let t=0;
+  function draw(){
+    t+=0.018;
+    ctx.clearRect(0,0,W,H);
+
+    /* draw orbs — autonomous movement only */
+    orbs.forEach(o=>{
+      const driftX=W*0.28;
+      const driftY=H*0.28;
+      const px=o.bx*W + Math.sin(t*o.speed+o.phase)*driftX + Math.cos(t*o.speed*0.7+o.phase)*driftX*0.4;
+      const py=o.by*H + Math.cos(t*o.speed+o.phase)*driftY + Math.sin(t*o.speed*0.6+o.phase)*driftY*0.4;
+      o.ox+=(px-o.ox)*0.012;
+      o.oy+=(py-o.oy)*0.012;
+
+      const g=ctx.createRadialGradient(o.ox,o.oy,0,o.ox,o.oy,o.r);
+      const hex=o.color;
+      g.addColorStop(0,hex+'88');
+      g.addColorStop(0.5,hex+'33');
+      g.addColorStop(1,'transparent');
+      ctx.fillStyle=g;
+      ctx.beginPath();
+      ctx.arc(o.ox,o.oy,o.r,0,Math.PI*2);
+      ctx.fill();
+    });
+
+    /* draw particles — instant flee on mouse proximity */
+    particles.forEach(p=>{
+      const dx=p.x-mouse.x, dy=p.y-mouse.y;
+      const dist=Math.sqrt(dx*dx+dy*dy);
+      if(dist<50&&dist>0){
+        const force=(50-dist)/50*2.5;
+        p.vx+=dx/dist*force;
+        p.vy+=dy/dist*force;
+      }
+      p.vx*=0.80;
+      p.vy*=0.80;
+      p.x+=p.vx;
+      p.y+=p.vy;
+      if(p.x<-2)p.x=W+2; if(p.x>W+2)p.x=-2;
+      if(p.y<-2)p.y=H+2; if(p.y>H+2)p.y=-2;
+      p.alpha+=p.twinkleSpeed*p.twinkleDir;
+      if(p.alpha>p.ta||p.alpha<0.08)p.twinkleDir*=-1;
+
+      ctx.beginPath();
+      ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+      ctx.fillStyle=`rgba(255,255,255,${p.alpha.toFixed(2)})`;
+      ctx.fill();
+    });
+
+    requestAnimationFrame(draw);
+  }
+  /* init orb positions */
+  orbs.forEach(o=>{o.ox=o.bx*W;o.oy=o.by*H;});
+  mouse.x=W/2;mouse.y=H/2;target.x=W/2;target.y=H/2;
+  draw();
+})();
+
+
+/* ---- SKIN GRADIENT SLIDER ---- */
+const skinStops=[
+  {pos:0,   hex:'#fde8d8', name:'Muy clara',  desc:'very fair, almost porcelain skin tone'},
+  {pos:0.2, hex:'#f0c4a0', name:'Clara',       desc:'fair, light skin tone'},
+  {pos:0.4, hex:'#d4956a', name:'Media',       desc:'medium warm tan skin tone'},
+  {pos:0.6, hex:'#a0633a', name:'Morena',      desc:'medium-dark brown skin tone'},
+  {pos:0.8, hex:'#6b3a20', name:'Oscura',      desc:'dark brown skin tone'},
+  {pos:1.0, hex:'#3b1f10', name:'Muy oscura',  desc:'very deep dark skin tone'},
+];
+let skinDesc='medium warm tan skin tone';
+
+function hexToRgb(h){return[parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)];}
+function lerpHex(a,b,t){
+  const ra=hexToRgb(a),rb=hexToRgb(b);
+  return'rgb('+Math.round(ra[0]+(rb[0]-ra[0])*t)+','+Math.round(ra[1]+(rb[1]-ra[1])*t)+','+Math.round(ra[2]+(rb[2]-ra[2])*t)+')';
+}
+function getSkinAt(pct){
+  for(let i=0;i<skinStops.length-1;i++){
+    const a=skinStops[i],b=skinStops[i+1];
+    if(pct>=a.pos&&pct<=b.pos){
+      const t=(pct-a.pos)/(b.pos-a.pos);
+      return{color:lerpHex(a.hex,b.hex,t),name:t<0.5?a.name:b.name,desc:t<0.5?a.desc:b.desc};
+    }
+  }
+  const last=skinStops[skinStops.length-1];
+  return{color:last.hex,name:last.name,desc:last.desc};
+}
+function updateSkinUI(pct){
+  const thumb=document.getElementById('skin-thumb');
+  const swatch=document.getElementById('skin-swatch');
+  const nameEl=document.getElementById('skin-name');
+  thumb.style.left=(pct*100)+'%';
+  const sk=getSkinAt(pct);
+  thumb.style.background=sk.color;
+  swatch.style.background=sk.color;
+  nameEl.textContent=sk.name;
+  skinDesc=sk.desc;
+}
+function initSkinSlider(){
+  const track=document.getElementById('skin-track');
+  updateSkinUI(0.35);
+  function getPos(e){
+    const rect=track.getBoundingClientRect();
+    const cx=e.touches?e.touches[0].clientX:e.clientX;
+    return Math.max(0,Math.min(1,(cx-rect.left)/rect.width));
+  }
+  function onMove(e){e.preventDefault();updateSkinUI(getPos(e));}
+  function onUp(){document.removeEventListener('mousemove',onMove);document.removeEventListener('mouseup',onUp);document.removeEventListener('touchmove',onMove);document.removeEventListener('touchend',onUp);}
+  track.addEventListener('mousedown',e=>{updateSkinUI(getPos(e));document.addEventListener('mousemove',onMove);document.addEventListener('mouseup',onUp);});
+  track.addEventListener('touchstart',e=>{updateSkinUI(getPos(e));document.addEventListener('touchmove',onMove,{passive:false});document.addEventListener('touchend',onUp);},{passive:true});
+}
+
+/* ---- DATA ---- */
+const sel={};
+const hairColors=[
+  {v:'platinum blonde, almost white hair',  l:'Rubio platino',  hex:'#f5f0d0'},
+  {v:'bright golden blonde hair',            l:'Rubio dorado',   hex:'#e8b830'},
+  {v:'warm chestnut brown hair',             l:'Castaño',        hex:'#8b5e3c'},
+  {v:'deep black hair',                      l:'Negro',          hex:'#1a1008'},
+  {v:'bright natural red hair',              l:'Pelirrojo',      hex:'#c0391b'},
+  {v:'dark auburn reddish-brown hair',       l:'Caoba',          hex:'#7a2e1a'},
+  {v:'cool dark grey hair',                  l:'Gris',           hex:'#888888'},
+  {v:'vivid electric blue hair',             l:'Azul eléctrico', hex:'#1a50d0'},
+  {v:'bright vivid pink hair',               l:'Rosa',           hex:'#d8306a'},
+  {v:'vivid purple hair',                    l:'Morado',         hex:'#7030c0'},
+];
+
+const opts={
+  genero:[
+    {v:'a young boy around 8 years old',  l:'Niño',
+     svg:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="7" r="4"/><path d="M5.5 21c0-3.5 2.9-6 6.5-6s6.5 2.5 6.5 6"/><path d="M15 11l2 2M9 11l-2 2"/></svg>'},
+    {v:'a young girl around 8 years old', l:'Niña',
+     svg:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="7" r="4"/><path d="M5.5 21c0-3.5 2.9-6 6.5-6s6.5 2.5 6.5 6"/><path d="M9 5c0 0 .5 2 3 2s3-2 3-2"/><path d="M7 13c-1 .5-1.5 1-1.5 1"/><path d="M17 13c1 .5 1.5 1 1.5 1"/></svg>'},
+  ],
+  traje:[
+    {v:'a cool robot-like red and yellow armored suit with a glowing chest light, a round helmet with a see-through visor and a short cape',
+     l:'Robot espacial',
+     svg:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2" width="10" height="8" rx="2"/><circle cx="12" cy="6" r="1.5" fill="currentColor"/><rect x="5" y="10" width="14" height="10" rx="2"/><rect x="2" y="11" width="3" height="7" rx="1"/><rect x="19" y="11" width="3" height="7" rx="1"/><circle cx="9" cy="15" r="1" fill="currentColor"/><circle cx="15" cy="15" r="1" fill="currentColor"/></svg>'},
+    {v:'a bright electric blue and silver superhero outfit covered in lightning bolt shapes, with a small mask and big yellow gloves that spark',
+     l:'Rayo súper chulo',
+     svg:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>'},
+    {v:'a shiny emerald green and gold suit with a hooded cape, a big star on the chest and sparkly boots that shine',
+     l:'Capa estrella',
+     svg:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>'},
+    {v:'a magical deep purple suit that looks like the starry night sky, with a long flowing cape and a glowing moon symbol on the chest',
+     l:'Héroe del cosmos',
+     svg:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" fill="currentColor" opacity=".8"/><circle cx="17" cy="5" r="1" fill="currentColor"/><circle cx="20" cy="9" r=".7" fill="currentColor"/><circle cx="15" cy="3" r=".5" fill="currentColor"/></svg>'},
+    {v:'a bright orange and white suit with cool fire patterns all over it, flame-shaped shoulder pads and a blazing emblem',
+     l:'Llama fuego',
+     svg:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2c0 0-6 5-6 10a6 6 0 0 0 12 0c0-2-1-4-2-5 0 2-1 3-2 3-1 0-2-1-2-3z"/><path d="M12 10c0 0-3 2.5-3 5a3 3 0 0 0 6 0c0-1-.5-2-1-2.5 0 1-.5 1.5-1 1.5s-1-.5-1-2z" opacity=".7"/></svg>'},
+    {v:'a deep blue ocean suit with silver wave patterns, a cool fin crest on the helmet and gauntlets that glow ocean blue',
+     l:'Guardián del mar',
+     svg:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M2 12c2-4 4-4 6 0s4 4 6 0 4-4 6 0"/><path d="M2 17c2-4 4-4 6 0s4 4 6 0 4-4 6 0"/><path d="M2 7c2-4 4-4 6 0s4 4 6 0 4-4 6 0"/></svg>'},
+    {v:'a red and black ninja suit with a sleek mask, a shiny golden dragon on the chest and light flexible armor for jumping super high',
+     l:'Ninja dragón',
+     svg:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2c2 1 5 4 5 8-1-1-2-1-3 0 1 2 1 4-1 5-2-1-2-3-1-5-1-1-2-1-3 0 0-4 1-7 3-8z" fill="currentColor" opacity=".8"/><path d="M7 14c-1 2-1 5 5 6 6-1 6-4 5-6"/><path d="M9 20v2M15 20v2"/></svg>'},
+    {v:'a shining silver and white futuristic suit with bright teal glowing lines, a cool aerodynamic helmet and rocket-powered boots',
+     l:'Cohete del futuro',
+     svg:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2c3 2 5 6 5 10H7c0-4 2-8 5-10z" fill="currentColor" opacity=".8"/><path d="M7 12v5l5 3 5-3v-5"/><path d="M5 14l-3 5h4M19 14l3 5h-4"/><line x1="12" y1="12" x2="12" y2="20"/></svg>'},
+  ],
+  escenario:[
+    {v:'a super colorful city of the future with flying cars, giant glowing screens and rainbow-colored buildings at sunset',
+     l:'Ciudad del futuro',
+     svg:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="10" width="4" height="12"/><rect x="8" y="6" width="5" height="16"/><rect x="15" y="8" width="4" height="14"/><path d="M2 10l4-5M19 8l3-4"/><line x1="4" y1="7" x2="6" y2="5"/><circle cx="19" cy="4" r="1" fill="currentColor"/></svg>'},
+    {v:'outer space with giant swirly colorful planets, sparkly nebulae in pink and blue and thousands of bright stars everywhere',
+     l:'¡El espacio!',
+     svg:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="5"/><ellipse cx="12" cy="12" rx="11" ry="4" transform="rotate(-20 12 12)"/><circle cx="5" cy="4" r="1" fill="currentColor"/><circle cx="20" cy="6" r=".7" fill="currentColor"/><circle cx="3" cy="16" r=".7" fill="currentColor"/><circle cx="21" cy="17" r="1" fill="currentColor"/></svg>'},
+    {v:'a magical glowing forest full of giant rainbow mushrooms, tiny fireflies, a sparkling waterfall and colorful glowing flowers',
+     l:'Bosque mágico',
+     svg:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2c-4 0-7 3-7 7h14c0-4-3-7-7-7z" fill="currentColor" opacity=".7"/><path d="M9 9c-2.5 0-4.5 2-4.5 5h9C13.5 11 11.5 9 9 9z" fill="currentColor" opacity=".5"/><line x1="12" y1="16" x2="12" y2="22"/><line x1="9" y1="20" x2="15" y2="20"/><circle cx="18" cy="8" r="1" fill="currentColor"/><circle cx="6" cy="14" r=".7" fill="currentColor"/></svg>'},
+    {v:'the very top of a super tall snowy mountain at sunrise, with golden fluffy clouds all around and an amazing panoramic view',
+     l:'Montaña épica',
+     svg:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 20l6-10 3 4 3-6 6 12H3z"/><path d="M13 8l-1 2" stroke-width="1"/><circle cx="18" cy="4" r="2" fill="currentColor" opacity=".7"/><path d="M15 5l-1 1M21 5l1-1M18 2V1M18 7v1"/></svg>'},
+    {v:'a bright colorful underwater city with tall coral towers, glowing friendly sea creatures and beautiful turquoise light rays',
+     l:'Ciudad submarina',
+     svg:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10c2-3 5-3 6 0s4 3 6 0 3 3 6 0"/><rect x="6" y="12" width="3" height="8" rx="1"/><rect x="11" y="10" width="3" height="10" rx="1"/><rect x="16" y="13" width="3" height="7" rx="1"/><path d="M2 22h20"/></svg>'},
+    {v:'high up above the clouds in a dramatic stormy sky with big lightning bolts and golden sunlight dramatically breaking through',
+     l:'Entre las nubes',
+     svg:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10a6 6 0 0 0-12 0c-2 0-4 1.5-4 4s2 4 4 4h12c2 0 4-1.5 4-4s-2-4-4-4z"/><path d="M13 12l-2 4h4l-2 4" stroke="currentColor" stroke-width="2"/></svg>'},
+  ],
+  accion:[
+    {v:'jumping forward super fast with one fist punching up high and a huge bright colorful energy explosion all around the body',
+     l:'¡Puño al aire!',
+     svg:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="11" width="8" height="7" rx="2"/><path d="M7 13H5a2 2 0 0 1 0-4h2"/><path d="M10 11V7a2 2 0 1 1 4 0v1a2 2 0 1 1 0 4"/><path d="M15 12h2a2 2 0 0 1 0 4h-2"/><path d="M12 2v3M17 4l-2 2M7 4l2 2"/></svg>'},
+    {v:'flying through the air with both arms stretched out toward you, cape blowing behind and the biggest most joyful smile ever',
+     l:'¡Volando!',
+     svg:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="6" r="3"/><path d="M3 12l6 2 3-4 3 4 6-2"/><path d="M12 8v4"/><path d="M6 20c1-3 3-5 6-5s5 2 6 5"/></svg>'},
+    {v:'landing from a giant jump in a super cool three-point hero pose, with a big colorful shockwave spreading out on the ground',
+     l:'¡Aterrizaje épico!',
+     svg:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="3"/><path d="M12 8v7"/><path d="M9 18l3-3 3 3"/><path d="M6 21h12"/><path d="M3 19l3-1M21 19l-3-1"/></svg>'},
+    {v:'standing tall and super confident with arms crossed and a big brave smile looking right at the viewer',
+     l:'Pose de héroe',
+     svg:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="3"/><path d="M12 8v13"/><path d="M8 12l4-2 4 2"/><path d="M9 21l3-3 3 3"/></svg>'},
+    {v:'spinning really fast with both arms out shooting fun colorful energy beams everywhere like a superhero tornado',
+     l:'¡Torbellino!',
+     svg:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M12 3a9 9 0 1 0 9 9"/><path d="M12 8a4 4 0 1 0 4 4"/><circle cx="12" cy="12" r="1" fill="currentColor"/><path d="M21 3l-6 6M21 3h-5M21 3v5"/></svg>'},
+    {v:'running so incredibly fast that a bright rainbow trail of light is left behind, laughing with pure joy',
+     l:'¡A mil por hora!',
+     svg:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="15" cy="5" r="3"/><path d="M9 22l6-12"/><path d="M9 13l-6 1M15 10l5-2"/><path d="M2 17l5-1M3 13l4-1"/></svg>'},
+  ],
+};
+
+const ojosColors=[
+  {v:'bright sparkling blue eyes',  l:'Azules',   hex:'#3b82f6'},
+  {v:'bright vivid green eyes',     l:'Verdes',   hex:'#16a34a'},
+  {v:'warm honey brown eyes',       l:'Marrones', hex:'#92400e'},
+  {v:'deep dark brown eyes',        l:'Negros',   hex:'#1c1008'},
+  {v:'striking grey eyes',          l:'Grises',   hex:'#94a3b8'},
+];
+
+function buildColorGrid(containerId, data, selKey){
+  const el=document.getElementById(containerId);
+  el.innerHTML='';
+  data.forEach(h=>{
+    const d=document.createElement('div');
+    d.className='hair-opt';
+    d.innerHTML=`<div class="hair-swatch" style="background:${h.hex};${h.hex==='#1c1008'?'border-color:rgba(255,255,255,0.3)':''}"></div><div class="hair-lbl">${h.l}</div>`;
+    d.onclick=()=>{
+      el.querySelectorAll('.hair-opt').forEach(x=>x.classList.remove('selected'));
+      d.classList.add('selected');
+      sel[selKey]=h.v;
+    };
+    el.appendChild(d);
+  });
+}
+
+function buildHairGrid(){
+  buildColorGrid('g-pelo', hairColors, 'pelo');
+}
+
+function buildOjosGrid(){
+  buildColorGrid('g-ojos', ojosColors, 'ojos');
+}
+
+function buildGrids(){
+  Object.keys(opts).forEach(key=>{
+    const el=document.getElementById('g-'+key);
+    if(!el)return;
+    el.innerHTML='';
+    opts[key].forEach(o=>{
+      const d=document.createElement('div');
+      d.className='opt';
+      d.innerHTML=`<span class="icon-svg">${o.svg}</span><span class="lbl">${o.l}</span>`;
+      d.onclick=()=>{
+        el.querySelectorAll('.opt').forEach(x=>x.classList.remove('selected'));
+        d.classList.add('selected');
+        sel[key]=o.v;
+      };
+      el.appendChild(d);
+    });
+  });
+}
+
+const TOTAL=10;
+function buildProgress(current){
+  const p=document.getElementById('progress');
+  p.innerHTML='';
+  for(let i=0;i<TOTAL;i++){
+    const d=document.createElement('div');
+    d.className='prog-dot'+(i<current?' done':'')+(i===current?' active':'');
+    p.appendChild(d);
+  }
+}
+
+function goStep(n){
+  document.querySelectorAll('.step').forEach(s=>s.classList.remove('active'));
+  document.getElementById('s'+n).classList.add('active');
+  buildProgress(n);
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+function startCamera(){
+  initMaskOverlay();
+  navigator.mediaDevices.getUserMedia({video:{facingMode:'user'},audio:false})
+    .then(stream=>{document.getElementById('video').srcObject=stream;})
+    .catch(()=>{});
+}
+
+/* ---- MASK OVERLAY ---- */
+function initMaskOverlay(){
+  const mc=document.getElementById('mask-canvas');
+  const mctx=mc.getContext('2d');
+  const video=document.getElementById('video');
+  let maskReady=null;
+  let lastFace=null;
+
+  /* La PNG ya tiene canal alpha correcto — cargar directo */
+  const img=new Image();
+  img.onload=function(){maskReady=img;};
+  img.src='mask-hero.png';
+
+  /* Detección con landmarks para alinear con los ojos */
+  let faceApiReady=false;
+  Promise.all([
+    faceapi.nets.tinyFaceDetector.loadFromUri('./weights'),
+    faceapi.nets.faceLandmark68TinyNet.loadFromUri('./weights')
+  ]).then(function(){faceApiReady=true;})
+    .catch(function(e){console.error('face model error:',e);});
+
+  function detectLoop(){
+    if(faceApiReady&&video.readyState>=2){
+      faceapi.detectSingleFace(video,new faceapi.TinyFaceDetectorOptions({inputSize:224,scoreThreshold:0.4}))
+        .withFaceLandmarks(true)
+        .then(function(det){
+          lastFace=det||null;
+        }).catch(function(){});
+    }
+    setTimeout(detectLoop,120);
+  }
+  setTimeout(detectLoop,800);
+
+  function getVideoCrop(vW,vH,cW,cH){
+    const cA=cW/cH,vA=vW/vH;
+    if(vA>cA){const dW=cA*vH;return{ox:(vW-dW)/2,oy:0,dW:dW,dH:vH};}
+    const dH=vW/cA;return{ox:0,oy:(vH-dH)/2,dW:vW,dH:dH};
+  }
+
+  function drawMask(){
+    const wrap=document.getElementById('camera-wrap');
+    if(!wrap){requestAnimationFrame(drawMask);return;}
+    const W=wrap.offsetWidth,H=wrap.offsetHeight;
+    if(W>0&&H>0){mc.width=W;mc.height=H;}
+    mctx.clearRect(0,0,mc.width,mc.height);
+    if(maskReady&&mc.width>0&&mc.height>0){
+      mctx.save();
+      mctx.translate(mc.width,0);
+      mctx.scale(-1,1);
+      if(lastFace&&lastFace.landmarks&&video.videoWidth>0){
+        const crop=getVideoCrop(video.videoWidth,video.videoHeight,mc.width,mc.height);
+        const sx=mc.width/crop.dW,sy=mc.height/crop.dH;
+        const pts=lastFace.landmarks.positions;
+        /* ojo izq: pts[36-41], ojo der: pts[42-47] */
+        const eyeLX=(pts[36].x-crop.ox)*sx, eyeRX=(pts[45].x-crop.ox)*sx;
+        const eyeLY=(pts[36].y-crop.oy)*sy, eyeRY=(pts[45].y-crop.oy)*sy;
+        const eyeCX=(eyeLX+eyeRX)/2, eyeCY=(eyeLY+eyeRY)/2;
+        const eyeSpan=Math.abs(eyeRX-eyeLX);
+        const mw=eyeSpan*2.1, mh=mw*(maskReady.height/maskReady.width);
+        const mx=eyeCX-mw/2, my=eyeCY-mh*0.52;
+        mctx.drawImage(maskReady,mx,my,mw,mh);
+      }else{
+        const mw=mc.width*0.4,mh=mw*(maskReady.height/maskReady.width);
+        mctx.drawImage(maskReady,(mc.width-mw)/2,mc.height*0.28-mh/2,mw,mh);
+      }
+      mctx.restore();
+    }
+    requestAnimationFrame(drawMask);
+  }
+  drawMask();
+}
+function startCountdown(){
+  const btn=document.getElementById('snap-btn');btn.disabled=true;
+  const ov=document.getElementById('countdown-overlay');ov.style.display='flex';
+  let c=3;ov.textContent=c;
+  const iv=setInterval(()=>{
+    c--;
+    if(c>0){ov.textContent=c;}
+    else{clearInterval(iv);ov.textContent='';ov.style.display='none';takePhoto();}
+  },1000);
+}
+function takePhoto(){
+  const video=document.getElementById('video'),flash=document.getElementById('flash');
+  flash.style.transition='none';flash.style.opacity='1';
+  setTimeout(()=>{flash.style.transition='opacity .4s';flash.style.opacity='0';},80);
+  const vW=video.videoWidth||640,vH=video.videoHeight||480;
+  const canvas=document.createElement('canvas');
+  canvas.width=vW;canvas.height=vH;
+  const ctx=canvas.getContext('2d');
+  /* Dibujar video en espejo (igual que en pantalla) */
+  ctx.save();ctx.translate(vW,0);ctx.scale(-1,1);
+  ctx.drawImage(video,0,0);
+  ctx.restore();
+  /* Dibujar máscara encima, escalada al tamaño del video */
+  const mc=document.getElementById('mask-canvas');
+  if(mc.width>0&&mc.height>0)ctx.drawImage(mc,0,0,vW,vH);
+  document.getElementById('snap-img').src=canvas.toDataURL('image/jpeg',.85);
+  document.getElementById('snap-preview').style.display='block';
+  document.getElementById('camera-wrap').style.display='none';
+  document.getElementById('snap-btn').style.display='none';
+  document.getElementById('retake-btn').style.display='inline-flex';
+  document.getElementById('next0-btn').style.display='inline-flex';
+}
+function retake(){
+  document.getElementById('snap-preview').style.display='none';
+  document.getElementById('camera-wrap').style.display='block';
+  document.getElementById('snap-btn').style.display='inline-flex';
+  document.getElementById('snap-btn').disabled=false;
+  document.getElementById('retake-btn').style.display='none';
+  document.getElementById('next0-btn').style.display='none';
+}
+
+function generatePrompt(){
+  const nombre=(document.getElementById('nombre').value.trim()||'SUPER HÉROE').toUpperCase();
+  const g  =sel.genero   ||'a young child around 8 years old';
+  const oj =sel.ojos     ||'warm brown eyes';
+  const pel=sel.pelo     ||'warm chestnut brown hair';
+  const pie=skinDesc;
+  const tr =sel.traje    ||'a colorful heroic suit with a glowing emblem and a flowing cape';
+  const es =sel.escenario||'a colorful animated futuristic city at golden hour';
+  const ac =sel.accion   ||'standing tall and confident with a big brave smile';
+
+  const tagline = (sel.genero && sel.genero.includes('girl')) ? 'NACIDA PARA SER UNA HEROÍNA' : 'NACIDO PARA SER UN HÉROE';
+
+  const prompt=`Create a vibrant vertical movie poster illustration in the style of a top-tier big-budget animated superhero film for children, with the same artistic quality and excitement as the best major studio animated features.
+
+CHARACTER: ${g} with ${oj}, ${pel}, and ${pie}. The child hero is wearing ${tr}. The character has a joyful, brave and determined expression — clearly the star hero of the story. Fully illustrated original fictional character, not based on any real person.
+
+SCENE: The hero is ${ac}, set against ${es}.
+
+ART STYLE: Premium quality digital illustration. Colorful, warm and thrilling. Expressive cartoon-realism style with clean confident linework, rich saturated colors with deep shadows and bright highlights, strong cinematic rim lighting from behind, dramatic depth-of-field background blur and a glowing energy aura around the character. The mood is adventurous, fun and empowering. Fully child-friendly and appropriate for all ages.
+
+COMPOSITION: Dramatic low-angle shot looking slightly up at the hero, centered and filling most of the vertical frame. Bright radiant energy aura, motion lines or particle effects surrounding the character to convey power, speed and excitement.
+
+TYPOGRAPHY: At the very top of the poster render the hero name "${nombre}" in large bold 3D letters with a shiny metallic or glowing finish, using a fun chunky rounded display font with strong drop shadow. At the very bottom render the tagline "${tagline}" in small uppercase spaced-out letters in white or gold.
+
+FORMAT: Portrait 2:3 ratio, full bleed illustration, no white borders or frames. This is a 100% original fictional illustrated child character created exclusively for an animated movie poster. No real people depicted. No existing intellectual property, trademarks or copyrighted characters referenced.`;
+
+  document.getElementById('result-name').textContent=nombre;
+  document.getElementById('prompt-out').textContent=prompt;
+  goStep(9);
+}
+
+function copyPrompt(){
+  const text=document.getElementById('prompt-out').textContent;
+  const b=document.getElementById('copy-btn');
+  function success(){b.textContent='✓ ¡Copiado!';setTimeout(()=>{b.textContent='Copiar prompt';},2200);}
+  function fallback(){
+    const ta=document.createElement('textarea');
+    ta.value=text;ta.style.cssText='position:fixed;top:0;left:0;opacity:0;';
+    document.body.appendChild(ta);ta.focus();ta.select();
+    try{document.execCommand('copy');success();}catch(e){alert('Selecciona el texto manualmente y copia con Ctrl+C');}
+    document.body.removeChild(ta);
+  }
+  if(navigator.clipboard&&window.isSecureContext){
+    navigator.clipboard.writeText(text).then(success).catch(fallback);
+  } else {
+    fallback();
+  }
+}
+
+function restart(){
+  Object.keys(sel).forEach(k=>delete sel[k]);
+  document.querySelectorAll('.opt,.hair-opt').forEach(x=>x.classList.remove('selected'));
+  document.getElementById('nombre').value='';
+  updateSkinUI(0.35);
+  retake();
+  goStep(0);
+}
+
+buildGrids();
+buildHairGrid();
+buildOjosGrid();
+buildProgress(0);
+initSkinSlider();
+startCamera();
+</script>
+</body>
+</html>
