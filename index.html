@@ -121,6 +121,25 @@ body{font-family:'Outfit',sans-serif;background:#050310;color:var(--text);min-he
 .restart-btn{background:none;border:none;color:var(--muted);font-size:13px;cursor:pointer;font-family:'Outfit',sans-serif;text-decoration:underline;text-underline-offset:3px;margin-top:1rem;display:block;transition:color .2s;}
 .restart-btn:hover{color:var(--text);}
 .divider{height:1px;background:linear-gradient(90deg,transparent,var(--border),transparent);margin:1rem 0;}
+
+/* S9 TWO-COLUMN LAYOUT */
+.s9-layout{display:flex;gap:1.25rem;align-items:flex-start;margin-bottom:1rem;}
+.s9-prompt-col{flex:1;min-width:0;}
+.s9-prompt-col .prompt-box{max-height:280px;margin-bottom:0;}
+.s9-steps-col{width:210px;flex-shrink:0;display:flex;flex-direction:column;gap:10px;}
+.step-card{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:1rem;display:flex;flex-direction:column;gap:.6rem;}
+.step-card-header{display:flex;align-items:center;gap:9px;}
+.step-card-num{width:22px;height:22px;border-radius:50%;background:linear-gradient(135deg,var(--c1),var(--c3));display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;color:#fff;}
+.step-card-title{font-size:13px;font-weight:600;color:var(--text);line-height:1.3;}
+.step-card .btn{width:100%;justify-content:center;font-size:13px;padding:10px 14px;text-align:center;text-decoration:none;display:block;}
+.step-card .input-hero{margin-bottom:0;font-size:14px;padding:10px 14px;}
+.btn-send{background:linear-gradient(135deg,var(--c4),#e05a00);border:none;box-shadow:0 0 18px rgba(245,158,11,0.4);color:#fff;width:100%;font-size:13px;padding:10px 14px;text-align:center;}
+.btn-send:hover{box-shadow:0 0 30px rgba(245,158,11,0.6);transform:translateY(-1px);}
+@media(max-width:540px){
+  .s9-layout{flex-direction:column;}
+  .s9-steps-col{width:100%;}
+  .s9-prompt-col .prompt-box{max-height:180px;}
+}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
 </head>
@@ -259,15 +278,46 @@ body{font-family:'Outfit',sans-serif;background:#050310;color:var(--text);min-he
     <!-- S9: RESULTADO -->
     <div class="step" id="s9">
       <div class="result-name" id="result-name"></div>
-      <div class="result-sub">¡Tu póster de héroe está listo! Pégalo en Microsoft Copilot para generarlo.</div>
-      <div class="instrucciones">
-        <strong>1.</strong> Copia el prompt &nbsp;·&nbsp; <strong>2.</strong> Abre Copilot con el botón azul &nbsp;·&nbsp; <strong>3.</strong> Pega el prompt y envía
+      <div class="result-sub" style="margin-bottom:1.25rem;">¡Tu póster de héroe está listo! Sigue los pasos.</div>
+
+      <div class="s9-layout">
+        <!-- Prompt -->
+        <div class="s9-prompt-col">
+          <div class="sub-label">Prompt generado</div>
+          <div class="prompt-box" id="prompt-out"></div>
+        </div>
+
+        <!-- Step cards -->
+        <div class="s9-steps-col">
+
+          <div class="step-card">
+            <div class="step-card-header">
+              <div class="step-card-num">1</div>
+              <div class="step-card-title">Copia el prompt</div>
+            </div>
+            <button class="btn btn-primary" id="copy-btn" onclick="copyPrompt()">Copiar prompt</button>
+          </div>
+
+          <div class="step-card">
+            <div class="step-card-header">
+              <div class="step-card-num">2</div>
+              <div class="step-card-title">Genera en Copilot</div>
+            </div>
+            <a class="btn btn-primary" href="https://m365.cloud.microsoft/chat/?fromCode=cmcv2&redirectId=706518ECB61E4DDA9388D9D6F10AB3B7&internalredirect=CCM&client-request-id=80e3e8d5-0409-43ba-8e78-183f27e4111d&origindomain=CCM&redirfrom=CsrToSSR" target="_blank">Abrir Copilot</a>
+          </div>
+
+          <div class="step-card">
+            <div class="step-card-header">
+              <div class="step-card-num">3</div>
+              <div class="step-card-title">Envía el póster</div>
+            </div>
+            <input class="input-hero" id="email-dest" type="email" placeholder="Email del visitante"/>
+            <button class="btn btn-send" onclick="sendEmail()">Enviar póster ✉</button>
+          </div>
+
+        </div>
       </div>
-      <div class="prompt-box" id="prompt-out"></div>
-      <div class="btn-row" style="margin-bottom:.75rem;">
-        <button class="btn btn-primary" id="copy-btn" onclick="copyPrompt()">Copiar prompt</button>
-        <a class="btn btn-primary" href="https://m365.cloud.microsoft/chat/?fromCode=cmcv2&redirectId=706518ECB61E4DDA9388D9D6F10AB3B7&internalredirect=CCM&client-request-id=80e3e8d5-0409-43ba-8e78-183f27e4111d&origindomain=CCM&redirfrom=CsrToSSR" target="_blank" style="text-decoration:none;">Abrir Copilot</a>
-      </div>
+
       <button class="restart-btn" onclick="restart()">Generar otro póster</button>
     </div>
 
@@ -746,6 +796,23 @@ function copyPrompt(){
   } else {
     fallback();
   }
+}
+
+function sendEmail(){
+  const email=document.getElementById('email-dest').value.trim();
+  if(!email){document.getElementById('email-dest').focus();return;}
+  const heroName=document.getElementById('result-name').textContent||'héroe';
+  const subject=encodeURIComponent('¡Eres un Héroe! | Fábrica de Héroes · Accenture');
+  const body=encodeURIComponent(
+    '¡Hola, '+heroName+'! 🦸\n\n'+
+    'La Inteligencia Artificial ha hablado: eres un superhéroe de verdad.\n\n'+
+    'Hoy, en la Jornada de Puertas Abiertas de Accenture, la IA te forjó un póster digno de las mejores películas. '+
+    '¡Guárdalo, imprímelo y que todo el mundo sepa de tus superpoderes!\n\n'+
+    '¡Hasta la próxima aventura! 💥\n'+
+    'El equipo de la Fábrica de Héroes — Stand IA · Accenture\n'+
+    'Jornada de Puertas Abiertas 2026'
+  );
+  window.location.href='mailto:'+email+'?subject='+subject+'&body='+body;
 }
 
 function restart(){
